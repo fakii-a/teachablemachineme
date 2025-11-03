@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Pose Detection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        h1 {
+            color: #2c2c2c;
+            margin-bottom: 8px;
+            font-size: 1.8em;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+            font-weight: 400;
+        }
+        
+        .instructions {
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 24px;
+            border-left: 3px solid #666;
+        }
+        
+        .instructions h3 {
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 0.95em;
+            font-weight: 600;
+        }
+        
+        .instructions ul {
+            margin-left: 20px;
+            color: #555;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+        
+        .instructions li {
+            margin: 6px 0;
+        }
+        
+        .button-group {
+            margin: 24px 0;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        
+        button {
+            padding: 12px 28px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            background: white;
+            color: #333;
+        }
+        
+        button:hover:not(:disabled) {
+            background: #333;
+            color: white;
+            border-color: #333;
+        }
+        
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        #stopButton {
+            display: none;
+            background: #f5f5f5;
+        }
+        
+        #stopButton:hover:not(:disabled) {
+            background: #e0e0e0;
+            color: #333;
+            border-color: #999;
+        }
+        
+        #status {
+            min-height: 50px;
+            margin: 20px 0;
+        }
+        
+        .error {
+            color: #c62828;
+            padding: 14px 16px;
+            background-color: #ffebee;
+            border-radius: 6px;
+            border-left: 3px solid #c62828;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        
+        .loading {
+            color: #555;
+            padding: 14px 16px;
+            background-color: #fafafa;
+            border-radius: 6px;
+            border-left: 3px solid #666;
+            font-size: 0.9em;
+        }
+        
+        .success {
+            color: #2e7d32;
+            padding: 14px 16px;
+            background-color: #f1f8f4;
+            border-radius: 6px;
+            border-left: 3px solid #2e7d32;
+            font-size: 0.9em;
+        }
+        
+        #canvas-container {
+            margin: 30px auto;
+            display: inline-block;
+            text-align: center;
+            width: 100%;
+        }
+        
+        #canvas {
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            display: block;
+            max-width: 100%;
+            height: auto;
+            margin: 0 auto;
+        }
+        
+        #label-container {
+            margin-top: 30px;
+        }
+        
+        #label-container div {
+            padding: 14px 18px;
+            margin: 10px 0;
+            background: #fafafa;
+            border-radius: 6px;
+            font-size: 14px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.2s ease;
+        }
+        
+        #label-container div:hover {
+            background: #f5f5f5;
+            border-color: #999;
+        }
+        
+        .prediction-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .class-name {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .percentage {
+            color: #666;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        
+        .progress-bar {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #666;
+            transition: width 0.3s ease;
+            border-radius: 2px;
+        }
+        
+        .highlight {
+            background: #333 !important;
+            border-color: #333 !important;
+        }
+        
+        .highlight .class-name,
+        .highlight .percentage {
+            color: #333 !important;
+        }
+        
+        .highlight .progress-bar {
+            background: #555 !important;
+        }
+        
+        .highlight .progress-fill {
+            background: white !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Arm Detection</h1>
+        <p class="subtitle">by: gabriel antonio soares marques</p>
+        
+        <div class="instructions">
+            <h3>Instructions</h3>
+            <ul>
+                <li>Click on "Start" to activate the webcam</li>
+                <li>Allow camera access when asked</li>
+                <li>Position yourself so the blue dots appear</li>
+                <li>Lift your left arm, or right arm</li>
+            </ul>
+        </div>
+        
+        <div class="button-group">
+            <button type="button" id="startButton" onclick="init()">Start</button>
+            <button type="button" id="stopButton" onclick="stopWebcam()">Stop</button>
+        </div>
+        
+        <div id="status"></div>
+        
+        <div id="canvas-container">
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div id="label-container"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+
+    <script type="text/javascript">
+
+        const URL = "https://teachablemachine.withgoogle.com/models/a-c04xzVV/";
+
+        let model, webcam, ctx, labelContainer, maxPredictions;
+        let isRunning = false;
+        let animationId = null;
+
+        async function init() {
+            const statusDiv = document.getElementById("status");
+            const startButton = document.getElementById("startButton");
+            const stopButton = document.getElementById("stopButton");
+            
+            if (isRunning) return;
+            
+            try {
+                startButton.disabled = true;
+                statusDiv.innerHTML = '<p class="loading">Loading model...</p>';
+                
+                const modelURL = URL + "model.json";
+                const metadataURL = URL + "metadata.json";
+
+                const loadPromise = tmPose.load(modelURL, metadataURL);
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error("Timeout loading model.")), 20000)
+                );
+                
+                model = await Promise.race([loadPromise, timeoutPromise]);
+                maxPredictions = model.getTotalClasses();
+
+                statusDiv.innerHTML = '<p class="loading">Starting up webcam...</p>';
+
+                const size = 400;
+                const flip = true;
+                webcam = new tmPose.Webcam(size, size, flip);
+                
+                const setupPromise = webcam.setup();
+                const setupTimeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error("Timeout setting up webcam.")), 15000)
+                );
+                
+                await Promise.race([setupPromise, setupTimeoutPromise]);
+                await webcam.play();
+                
+                isRunning = true;
+                
+                startButton.style.display = 'none';
+                stopButton.style.display = 'inline-block';
+
+                const canvas = document.getElementById("canvas");
+                canvas.width = size; 
+                canvas.height = size;
+                ctx = canvas.getContext("2d");
+                
+                labelContainer = document.getElementById("label-container");
+                labelContainer.innerHTML = '';
+                for (let i = 0; i < maxPredictions; i++) {
+                    const div = document.createElement("div");
+                    div.innerHTML = `
+                        <div class="prediction-row">
+                            <span class="class-name">Classe ${i + 1}</span>
+                            <span class="percentage">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 0%"></div>
+                        </div>
+                    `;
+                    labelContainer.appendChild(div);
+                }
+                
+                loop();
+                
+                statusDiv.innerHTML = '<p class="success">Done. Lift your arms up XD</p>';
+                
+            } catch (error) {
+                console.error("Erro:", error);
+                isRunning = false;
+                
+                statusDiv.innerHTML = `<p class="error">Error: ${error.message}<br><br>
+                    Check if the model URL is correct and if it's a POSE model.<br>
+                    Refresh your page and start again</p>`;
+                
+                startButton.disabled = false;
+                startButton.style.display = 'inline-block';
+                stopButton.style.display = 'none';
+            }
+        }
+
+        async function loop() {
+            if (!isRunning) return;
+            
+            try {
+                webcam.update();
+                await predict();
+                animationId = window.requestAnimationFrame(loop);
+            } catch (error) {
+                console.error("Erro no loop:", error);
+                stopWebcam();
+            }
+        }
+
+        async function predict() {
+            if (!model || !webcam) return;
+            
+            const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
+            const prediction = await model.predict(posenetOutput);
+            
+            for (let i = 0; i < maxPredictions; i++) {
+                const percentage = (prediction[i].probability * 100).toFixed(1);
+                const className = prediction[i].className;
+                
+                const div = labelContainer.childNodes[i];
+                div.querySelector('.class-name').textContent = className;
+                div.querySelector('.percentage').textContent = percentage + '%';
+                div.querySelector('.progress-fill').style.width = percentage + '%';
+                
+                if (prediction[i].probability > 0.7) {
+                    div.classList.add('highlight');
+                } else {
+                    div.classList.remove('highlight');
+                }
+            }
+
+            drawPose(pose);
+        }
+
+        function drawPose(pose) {
+            if (webcam.canvas) {
+                ctx.drawImage(webcam.canvas, 0, 0);
+                
+                if (pose) {
+                    const minPartConfidence = 0.5;
+                    tmPose.drawSkeleton(pose.keypoints, minPartConfidence, ctx, 3, '#666666');
+                    tmPose.drawKeypoints(pose.keypoints, minPartConfidence, ctx);
+                }
+            }
+        }
+
+        function stopWebcam() {
+            isRunning = false;
+            
+            if (animationId) {
+                window.cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            if (webcam) {
+                webcam.stop();
+            }
+            
+            const canvas = document.getElementById("canvas");
+            if (ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            document.getElementById("label-container").innerHTML = '';
+            
+            document.getElementById("startButton").style.display = 'inline-block';
+            document.getElementById("startButton").disabled = false;
+            document.getElementById("stopButton").style.display = 'none';
+            
+            document.getElementById("status").innerHTML = '<p class="loading">Webcam on hold.</p>';
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (webcam) {
+                webcam.stop();
+            }
+        });
+        
+        document.getElementById("status").innerHTML = '<p class="loading">Click on "Start" to begin.</p>';
+    </script>
+</body>
+</html>
